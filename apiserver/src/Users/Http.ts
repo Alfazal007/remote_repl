@@ -3,6 +3,7 @@ import { Effect, Layer } from "effect"
 import { Api } from "../Api.js"
 import { UserService, UserserviceLive } from "./Service.js"
 import { PrismaServiceLive } from "app/common/PrismaService"
+import { Authentication } from "./Api.js"
 
 export const HttpUsersLive = HttpApiBuilder.group(
     Api,
@@ -12,9 +13,19 @@ export const HttpUsersLive = HttpApiBuilder.group(
             const userService = yield* UserService
             return handlers
                 .handle("createUser", ({ payload }) =>
-                    Effect.gen(function*() {
-                        return yield* userService.createUser(payload.username, payload.password)
-                    }))
+                    userService.createUser(payload.username, payload.password)
+                )
+                .handle("signin", ({ payload }) =>
+                    userService.signin(payload.username, payload.password).pipe(
+                        Effect.tap((user) =>
+                            HttpApiBuilder.securitySetCookie(
+                                Authentication.security.cookie,
+                                user.accessToken,
+                                { expires: new Date(Date.now() + 24 * 60 * 60 * 1000) }
+                            )
+                        )
+                    )
+                )
         })
 ).pipe(
     Layer.provide(UserserviceLive),

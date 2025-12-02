@@ -5,4 +5,17 @@ export const CreateUserSchema = Schema.Struct({
     password: Schema.String.pipe(Schema.minLength(6), Schema.maxLength(20)),
 })
 
-export type CreateUserSchemaType = typeof CreateUserSchema 
+export const CreateUserResponseSchema = Schema.Struct({
+    id: Schema.Number,
+    username: Schema.String
+})
+
+export const SignInResponseSchema = Schema.Struct({
+    id: Schema.Number,
+    username: Schema.String,
+    accessToken: Schema.String
+})
+
+export type CreateUserResponseSchemaType = typeof CreateUserResponseSchema.Type
+export type SignInResponseSchemaType = typeof SignInResponseSchema.Type
+

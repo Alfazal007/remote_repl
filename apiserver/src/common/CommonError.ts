@@ -3,6 +3,7 @@ import { Schema } from "effect";
 export const ErrorType = Schema.Enums({
     GENERAL: "GENERAL",
     INTERNAL: "INTERNAL",
+    NOTFOUND: "NOTFOUND",
 });
 
 export const InternalError = Schema.Struct({
@@ -17,5 +18,12 @@ export const GeneralError = Schema.Struct({
     details: Schema.optional(Schema.String),
 })
 
+export const NotFoundError = Schema.Struct({
+    error: Schema.String,
+    type: Schema.Literal("NOTFOUND"),
+    details: Schema.optional(Schema.String),
+})
+
 export type InternalError = Schema.Schema.Type<typeof InternalError>;
 export type GeneralError = Schema.Schema.Type<typeof GeneralError>;
+export type NotFoundError = Schema.Schema.Type<typeof NotFoundError>;
