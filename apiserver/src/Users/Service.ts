@@ -4,6 +4,7 @@ import type { GeneralError, InternalError, NotFoundError } from "app/common/Comm
 import bcrypt from "bcrypt"
 import jsonwebtoken from "jsonwebtoken"
 import { CreateUserResponseSchema, CreateUserResponseSchemaType, SignInResponseSchema, SignInResponseSchemaType } from "./Schema.js"
+import { RedisService } from "app/common/RedisService"
 
 interface UserserviceInterface {
     createUser: (username: string, password: string) =>
@@ -19,6 +20,8 @@ export class UserService extends Context.Tag(
 export const UserserviceLive = Layer.effect(UserService,
     Effect.gen(function*() {
         const prismaClient = yield* PrismaService
+        const redis = yield* RedisService
+
         const jwtSecret = yield* Config.string("JWT_SECRET")
         return {
             createUser(username, password) {
@@ -75,6 +78,10 @@ export const UserserviceLive = Layer.effect(UserService,
                         username,
                         id: userFromDb.id
                     }, jwtSecret, { expiresIn: "24h" })
+                    yield* Effect.tryPromise({
+                        try: () => redis.set(username, accessToken),
+                        catch: (err) => { console.log(`Redis error ${err}`); return ({ error: "Issue talking to redis", type: "INTERNAL" } as InternalError) }
+                    })
                     return { username: userFromDb.username, accessToken, id: userFromDb.id } as typeof SignInResponseSchema.Type
                 })
             },

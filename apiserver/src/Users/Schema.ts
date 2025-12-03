@@ -16,6 +16,11 @@ export const SignInResponseSchema = Schema.Struct({
     accessToken: Schema.String
 })
 
+export const CurrentUserResponseSchema = Schema.Struct({
+    id: Schema.Number,
+    username: Schema.String,
+})
+
 export type CreateUserResponseSchemaType = typeof CreateUserResponseSchema.Type
 export type SignInResponseSchemaType = typeof SignInResponseSchema.Type
 

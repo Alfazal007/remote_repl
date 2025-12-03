@@ -10,8 +10,7 @@ import { AccountsPolicy } from "./Policy.js"
 import { UsersRepo } from "./UsersRepo.js"
 
 export const AuthenticationLive = Layer.effect(
-    Authentication,
-    Effect.gen(function*() {
+    Authentication, Effect.gen(function*() {
         const userRepo = yield* UsersRepo
 
         return Authentication.of({

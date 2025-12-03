@@ -3,7 +3,6 @@ import { CreateUserResponseSchema, CreateUserSchema, SignInResponseSchema } from
 import { GeneralError, InternalError, NotFoundError } from "app/common/CommonError";
 import { CurrentUser } from "./User.js";
 import { Unauthorized } from "@effect/platform/HttpApiError";
-
 export class Authentication extends HttpApiMiddleware.Tag<Authentication>()(
     "Accounts/Api/Authentication",
     {
@@ -13,12 +12,21 @@ export class Authentication extends HttpApiMiddleware.Tag<Authentication>()(
             cookie: HttpApiSecurity.apiKey({
                 in: "cookie",
                 key: "token"
-            })
+            }),
         }
     }
 ) { }
 
 export class UsersApi extends HttpApiGroup.make("apiServer/src/users/usersApi")
+    .add(
+        HttpApiEndpoint.get("me", "/me")
+            .addSuccess(CreateUserResponseSchema, { status: 200 })
+            .addError(GeneralError, { status: 400 })
+            .addError(InternalError, { status: 500 })
+            .addError(Unauthorized, { status: 401 })
+            .addError(NotFoundError, { status: 404 })
+            .middleware(Authentication)
+    )
     .add(
         HttpApiEndpoint.post("createUser", "/create")
             .setPayload(CreateUserSchema)
