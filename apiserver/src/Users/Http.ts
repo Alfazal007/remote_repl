@@ -63,7 +63,6 @@ export const HttpUsersLive = HttpApiBuilder.group(
                 .handle("me", () => {
                     return Effect.gen(function*() {
                         const currentUser = yield* CurrentUser
-                        console.log({ currentUser })
                         return currentUser
                     })
                 })
