@@ -3,10 +3,12 @@ import { Context, Effect, Layer } from "effect"
 import { GeneralError, InternalError } from "app/common/CommonError"
 import { CreateReplResponseSchemaType, CreateReplResponseSchema } from "./Schema.js"
 import { CurrentUser } from "app/Users/User"
+import { HelperService } from "app/common/HelperService"
+import { S3Service } from "app/common/S3Client"
 
 interface ReplserviceInterface {
     createRepl: (typeOfRepl: "NODE" | "RUST") =>
-        Effect.Effect<CreateReplResponseSchemaType, InternalError | GeneralError, CurrentUser>,
+        Effect.Effect<CreateReplResponseSchemaType, InternalError | GeneralError, CurrentUser | HelperService | S3Service>,
 }
 
 export class ReplService extends Context.Tag(
@@ -21,11 +23,7 @@ export const ReplserviceLive = Layer.effect(ReplService,
             createRepl(typeOfRepl) {
                 return Effect.gen(function*() {
                     const currentUser = yield* CurrentUser
-                    // TODO:: copy the repl on r2
-                    if (typeOfRepl == null) {
-                        return yield* Effect.fail({ error: "Issue talking to the database", type: "GENERAL" } as GeneralError)
-                    }
-
+                    const helperService = yield* HelperService
                     const dbResult = yield* Effect.tryPromise({
                         try: () => prismaClient.repl.create({
                             data: {
@@ -38,6 +36,7 @@ export const ReplserviceLive = Layer.effect(ReplService,
                             return { error: "Issue talking to the database", type: "INTERNAL" } as InternalError
                         }
                     })
+                    yield* helperService.copyWithinS3(`${currentUser.id}/${dbResult.id}`, typeOfRepl)
                     return { replId: dbResult.id } as typeof CreateReplResponseSchema.Type
                 })
             }

@@ -5,6 +5,8 @@ import { PrismaServiceLive } from "app/common/PrismaService"
 import { RedisServiceLive } from "app/common/RedisService"
 import { AuthenticationLive } from "app/Users/Http"
 import { ReplService, ReplserviceLive } from "./Service.js"
+import { HelperServiceLive } from "app/common/HelperService"
+import { S3ServiceLive } from "app/common/S3Client"
 
 export const HttpReplLive = HttpApiBuilder.group(
     Api,
@@ -22,4 +24,6 @@ export const HttpReplLive = HttpApiBuilder.group(
     Layer.provide(ReplserviceLive),
     Layer.provide(PrismaServiceLive),
     Layer.provide(RedisServiceLive),
+    Layer.provide(S3ServiceLive),
+    Layer.provide(HelperServiceLive),
 )
