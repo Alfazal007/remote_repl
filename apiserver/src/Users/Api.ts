@@ -1,8 +1,9 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiMiddleware, HttpApiSecurity, } from "@effect/platform"
-import { CreateUserResponseSchema, CreateUserSchema, SignInResponseSchema } from "./Schema.js";
+import { CreateUserResponseSchema, CreateUserSchema, IsUserValidSchema, SignInResponseSchema } from "./Schema.js";
 import { GeneralError, InternalError, NotFoundError } from "app/common/CommonError";
 import { CurrentUser } from "./User.js";
 import { Unauthorized } from "@effect/platform/HttpApiError";
+import { Schema } from "effect";
 export class Authentication extends HttpApiMiddleware.Tag<Authentication>()(
     "Accounts/Api/Authentication",
     {
@@ -41,5 +42,11 @@ export class UsersApi extends HttpApiGroup.make("apiServer/src/users/usersApi")
             .addError(GeneralError, { status: 400 })
             .addError(InternalError, { status: 500 })
             .addError(NotFoundError, { status: 404 })
+    )
+    .add(
+        HttpApiEndpoint.post("userExistsAndValid", "/validUser")
+            .setPayload(IsUserValidSchema)
+            .addSuccess(Schema.Void, { status: 200 })
+            .addError(Schema.Null, { status: 400 })
     )
 { }

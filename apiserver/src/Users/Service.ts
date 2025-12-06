@@ -2,7 +2,7 @@ import { PrismaService } from "app/common/PrismaService"
 import { Config, Context, Effect, Layer } from "effect"
 import type { GeneralError, InternalError, NotFoundError } from "app/common/CommonError"
 import bcrypt from "bcrypt"
-import jsonwebtoken from "jsonwebtoken"
+import jsonwebtoken, { JwtPayload } from "jsonwebtoken"
 import { CreateUserResponseSchema, CreateUserResponseSchemaType, SignInResponseSchema, SignInResponseSchemaType } from "./Schema.js"
 import { RedisService } from "app/common/RedisService"
 
@@ -10,7 +10,9 @@ interface UserserviceInterface {
     createUser: (username: string, password: string) =>
         Effect.Effect<CreateUserResponseSchemaType, InternalError | GeneralError>,
     signin: (username: string, password: string) =>
-        Effect.Effect<SignInResponseSchemaType, InternalError | NotFoundError | GeneralError>
+        Effect.Effect<SignInResponseSchemaType, InternalError | NotFoundError | GeneralError>,
+    checkUserValid: (sharedToken: string, userId: number, repoId: number, accessToken: string, systemToken: string) =>
+        Effect.Effect<void, null>,
 }
 
 export class UserService extends Context.Tag(
@@ -85,6 +87,41 @@ export const UserserviceLive = Layer.effect(UserService,
                     return { username: userFromDb.username, accessToken, id: userFromDb.id } as typeof SignInResponseSchema.Type
                 })
             },
+            checkUserValid(sharedToken, userId, repoId, accessToken, systemToken) {
+                return Effect.gen(function*() {
+                    if (sharedToken != systemToken) {
+                        return yield* Effect.fail(null)
+                    }
+                    const { username, id } = yield* Effect.try({
+                        try: () => jsonwebtoken.verify(accessToken, jwtSecret) as JwtPayload,
+                        catch: () => null,
+                    })
+                    if (id != userId) {
+                        return yield* Effect.fail(null)
+                    }
+                    let tokenRedis = yield* Effect.tryPromise({
+                        try: () => redis.get(username),
+                        catch: (err) => { console.log(`Redis error ${err}`); return null }
+                    })
+                    if (tokenRedis != accessToken) {
+                        return yield* Effect.fail(null)
+                    }
+                    const repoExists = yield* Effect.tryPromise({
+                        try: () => prismaClient.repl.findFirst({
+                            where: {
+                                AND: [
+                                    { authorId: userId },
+                                    { id: repoId }
+                                ]
+                            }
+                        }),
+                        catch: (err) => { console.log(`Prisma error ${err}`); return null }
+                    })
+                    if (!repoExists) {
+                        return yield* Effect.fail(null)
+                    }
+                })
+            }
         }
     })
 )

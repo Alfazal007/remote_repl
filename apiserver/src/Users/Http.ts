@@ -45,6 +45,7 @@ export const HttpUsersLive = HttpApiBuilder.group(
     (handlers) =>
         Effect.gen(function*() {
             const userService = yield* UserService
+            const sharedToken = yield* Config.string("SHARED_TOKEN")
             return handlers
                 .handle("createUser", ({ payload }) =>
                     userService.createUser(payload.username, payload.password)
@@ -65,6 +66,9 @@ export const HttpUsersLive = HttpApiBuilder.group(
                         const currentUser = yield* CurrentUser
                         return currentUser
                     })
+                })
+                .handle("userExistsAndValid", ({ payload }) => {
+                    return userService.checkUserValid(payload.sharedToken, payload.userId, payload.repoId, payload.accessToken, sharedToken)
                 })
         })
 ).pipe(

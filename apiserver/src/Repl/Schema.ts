@@ -9,6 +9,10 @@ export const CreateReplSchema = Schema.Struct({
     type: ReplType,
 })
 
+export const StartReplSchema = Schema.Struct({
+    replId: Schema.Number,
+})
+
 export const CreateReplResponseSchema = Schema.Struct({
     replId: Schema.Number
 })
