@@ -7,6 +7,7 @@ import { AuthenticationLive } from "app/Users/Http"
 import { ReplService, ReplserviceLive } from "./Service.js"
 import { HelperServiceLive } from "app/common/HelperService"
 import { S3ServiceLive } from "app/common/S3Client"
+import { CurrentUser } from "app/Users/User"
 
 export const HttpReplLive = HttpApiBuilder.group(
     Api,
@@ -14,9 +15,25 @@ export const HttpReplLive = HttpApiBuilder.group(
     (handlers) =>
         Effect.gen(function*() {
             const replService = yield* ReplService
+
             return handlers
                 .handle("create", ({ payload }) =>
-                    replService.createRepl(payload.type as "NODE" | "RUST")
+                    Effect.gen(function*() {
+                        const currentUser = yield* CurrentUser
+                        return yield* replService.createRepl(payload.type as "NODE" | "RUST", currentUser.id)
+                    })
+                )
+                .handle("startRepl", ({ payload }) =>
+                    Effect.gen(function*() {
+                        const currentUser = yield* CurrentUser
+                        return yield* replService.startRepl(payload.replId, currentUser.id)
+                    })
+                )
+                .handle("deleteRepl", ({ payload }) =>
+                    Effect.gen(function*() {
+                        const currentUser = yield* CurrentUser
+                        return yield* replService.deleteRepl(payload.replId, currentUser.id)
+                    })
                 )
         })
 ).pipe(

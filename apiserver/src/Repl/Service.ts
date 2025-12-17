@@ -2,16 +2,19 @@ import { PrismaService } from "app/common/PrismaService"
 import { Context, Effect, Layer } from "effect"
 import { GeneralError, InternalError, NotFoundError } from "app/common/CommonError"
 import { CreateReplResponseSchemaType, CreateReplResponseSchema } from "./Schema.js"
-import { CurrentUser } from "app/Users/User"
 import { HelperService } from "app/common/HelperService"
 import { S3Service } from "app/common/S3Client"
+import { RedisService } from "app/common/RedisService"
 
 interface ReplserviceInterface {
-    createRepl: (typeOfRepl: "NODE" | "RUST") =>
-        Effect.Effect<CreateReplResponseSchemaType, InternalError | GeneralError, CurrentUser | HelperService | S3Service>,
+    createRepl: (typeOfRepl: "NODE" | "RUST", userId: number) =>
+        Effect.Effect<CreateReplResponseSchemaType, InternalError | GeneralError, HelperService | S3Service>,
 
-    startRepl: (replId: number) =>
-        Effect.Effect<CreateReplResponseSchemaType, InternalError | GeneralError | NotFoundError, CurrentUser | HelperService | S3Service>,
+    startRepl: (replId: number, userId: number) =>
+        Effect.Effect<void, InternalError | GeneralError | NotFoundError>,
+
+    deleteRepl: (replId: number, userId: number) =>
+        Effect.Effect<void, InternalError | GeneralError | NotFoundError, HelperService | S3Service>,
 }
 
 export class ReplService extends Context.Tag(
@@ -21,17 +24,17 @@ export class ReplService extends Context.Tag(
 export const ReplserviceLive = Layer.effect(ReplService,
     Effect.gen(function*() {
         const prismaClient = yield* PrismaService
+        const redisClient = yield* RedisService
+        const helperService = yield* HelperService
 
         return {
-            createRepl(typeOfRepl) {
+            createRepl(typeOfRepl, userId) {
                 return Effect.gen(function*() {
-                    const currentUser = yield* CurrentUser
-                    const helperService = yield* HelperService
                     const dbResult = yield* Effect.tryPromise({
                         try: () => prismaClient.repl.create({
                             data: {
                                 type: typeOfRepl,
-                                authorId: currentUser.id
+                                authorId: userId
                             }
                         }),
                         catch: (databaseErr) => {
@@ -39,23 +42,19 @@ export const ReplserviceLive = Layer.effect(ReplService,
                             return { error: "Issue talking to the database", type: "INTERNAL" } as InternalError
                         }
                     })
-                    yield* helperService.copyWithinS3(`${currentUser.id}/${dbResult.id}`, typeOfRepl)
+                    yield* helperService.copyWithinS3(`${userId}/${dbResult.id}`, typeOfRepl)
                     return { replId: dbResult.id } as typeof CreateReplResponseSchema.Type
                 })
             },
 
-            startRepl(replId) {
+            startRepl(replId, userId) {
                 return Effect.gen(function*() {
-                    const currentUser = yield* CurrentUser
-                    // TODO:: write docker logic here
-                    // const helperService = yield* HelperService
-
                     const dbResult = yield* Effect.tryPromise({
                         try: () => prismaClient.repl.findFirst({
                             where: {
                                 AND: [
                                     {
-                                        authorId: currentUser.id
+                                        authorId: userId
                                     },
                                     {
                                         id: replId
@@ -71,8 +70,45 @@ export const ReplserviceLive = Layer.effect(ReplService,
                     if (!dbResult) {
                         return yield* Effect.fail({ error: "No such repl", type: "NOTFOUND" } as NotFoundError)
                     }
+                    yield* Effect.tryPromise({
+                        try: () => redisClient.lPush(dbResult.type, JSON.stringify({ "repoId": dbResult.id })),
+                        catch: (err) => {
+                            console.log("Issue checking uniqueness of username", { redisError: String(err) })
+                            return { error: "Issue talking to redis", type: "INTERNAL" } as InternalError
+                        }
+                    })
+                    return
+                })
+            },
 
-                    return { replId: dbResult.id } as typeof CreateReplResponseSchema.Type
+            deleteRepl(replId, userId) {
+                return Effect.gen(function*() {
+                    const dbResult = yield* Effect.tryPromise({
+                        try: () => prismaClient.repl.deleteMany({
+                            where: {
+                                AND: [
+                                    {
+                                        authorId: userId
+                                    },
+                                    {
+                                        id: replId
+                                    }
+                                ]
+                            }
+                        }),
+                        catch: (databaseErr) => {
+                            console.log("Issue checking uniqueness of username", { databaseErr: String(databaseErr) })
+                            return { error: "Issue talking to the database", type: "INTERNAL" } as InternalError
+                        }
+                    })
+                    if (!dbResult) {
+                        return yield* Effect.fail({ error: "No such repl", type: "NOTFOUND" } as NotFoundError)
+                    }
+                    if (dbResult.count == 0) {
+                        return
+                    }
+                    yield* helperService.deleteFromS3(`implementation/${userId}/${replId}/`)
+                    return
                 })
             }
         }
