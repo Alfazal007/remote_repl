@@ -1,0 +1,10 @@
+create a service that pops from the queue checks database, creates resources
+it should do kubernetes stuff and insert data into that pod from s3
+it should update the database to being used state and inserts the url of that into some redis state or something
+
+create an orchestrator service that reads from the redis state and checks if those servers are alive or not
+if not then sync them back to s3 and remove resources and update kubernetes
+
+create a terminal access inside websocket service
+
+write a frontend

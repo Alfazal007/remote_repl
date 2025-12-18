@@ -70,6 +70,10 @@ export const ReplserviceLive = Layer.effect(ReplService,
                     if (!dbResult) {
                         return yield* Effect.fail({ error: "No such repl", type: "NOTFOUND" } as NotFoundError)
                     }
+                    // NOTE:: THE SERVICE THAT SETS THIS TO TRUE IS THE ONE THAT POPS IT OUT OF THE QUEUE AND IF ALREADY HASSTARTED THEN PUT IT TO THE END OF THE QUEUE AGAIN
+                    if (dbResult.state != "STOPPED") {
+                        return yield* Effect.fail({ error: "Only one can access this at a time wait for termination of the other side", type: "GENERAL" } as GeneralError)
+                    }
                     yield* Effect.tryPromise({
                         try: () => redisClient.lPush(dbResult.type, JSON.stringify({ "repoId": dbResult.id })),
                         catch: (err) => {
