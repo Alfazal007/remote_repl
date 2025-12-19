@@ -3,14 +3,15 @@ import { Server } from 'socket.io'
 import { ConnectionState } from './src/state'
 import { randomUUID } from 'crypto'
 import { tryCatchAsync } from './src/helpers/tryCatch'
-import { prisma } from './src/common/prisma'
 import { listFilesAndDirs } from './src/helpers/lsReader'
 import { overwriteFile } from './src/helpers/writeToFile'
 import { readFileText } from './src/helpers/readFromFile'
 import axios from 'axios'
+import { TerminalManager } from './src/terminal'
 
 const validUserUrl = "http://localhost:3000/validUser"
 
+const terminalManager = new TerminalManager();
 const server = http.createServer((req, res) => {
     if (req.method === 'GET') {
         if (req.url === '/health') {
@@ -97,16 +98,24 @@ io.on('connection', (socket) => {
         }
         let replId = ConnectionState.getInstance().removeSocket(socket.id)
         if (replId) {
-            await tryCatchAsync(prisma.repl.update({
-                where: {
-                    id: replId
-                },
-                data: {
-                    hasStarted: false
-                }
-            }))
             process.exit(0)
         }
+    })
+
+    socket.on("requestTerminal", async () => {
+        let replId = ConnectionState.getInstance().getSocketToPodData().get(socket.id)?.replId
+        if (!replId) {
+            return
+        }
+        terminalManager.createPty(socket.id, replId, (data, _) => {
+            socket.emit('terminal', {
+                data: Buffer.from(data, "utf-8")
+            })
+        })
+    })
+
+    socket.on("terminalData", async ({ data }: { data: string, terminalId: number }) => {
+        terminalManager.write(socket.id, data)
     })
 })
 

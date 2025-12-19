@@ -75,7 +75,7 @@ export const ReplserviceLive = Layer.effect(ReplService,
                         return yield* Effect.fail({ error: "Only one can access this at a time wait for termination of the other side", type: "GENERAL" } as GeneralError)
                     }
                     yield* Effect.tryPromise({
-                        try: () => redisClient.lPush(dbResult.type, JSON.stringify({ "repoId": dbResult.id })),
+                        try: () => redisClient.lPush(dbResult.type, JSON.stringify({ "repoId": dbResult.id, "userId": dbResult.authorId })),
                         catch: (err) => {
                             console.log("Issue checking uniqueness of username", { redisError: String(err) })
                             return { error: "Issue talking to redis", type: "INTERNAL" } as InternalError
